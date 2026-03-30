@@ -2923,8 +2923,15 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                 if (data && data.length > 0) {
                     console.log("Datos cargados correctamente de Supabase")
                     const character = data[0]
+                    console.log("Character name from DB:", character.name)
                     startTransition(() => {
-                        if (character.name !== undefined) setCharacterName(String(character.name))
+                        if (character.name !== undefined && character.name !== null) {
+                            const loadedName = String(character.name).trim()
+                            if (loadedName) {
+                                setCharacterName(loadedName)
+                                console.log("Character name set to:", loadedName)
+                            }
+                        }
                         if (character.level !== undefined && character.level !== null) {
                             setLevel(character.level)
                             setLevelInput(String(character.level))
@@ -2997,7 +3004,7 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
 
         const characterData = {
             user_id: userId,
-            name: characterName,
+            name: String(characterName || "NOMBRE").trim(),
             level,
             race: selectedRace,
             subrace: selectedSubrace,
@@ -3057,7 +3064,7 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                 const errorText = await response.text()
                 console.error("Error al guardar:", response.status, errorText)
             } else {
-                console.log("Datos guardados correctamente")
+                console.log("Datos guardados correctamente. Name:", characterData.name)
             }
         } catch (error) {
             console.error("Error saving character data:", error)
