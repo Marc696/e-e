@@ -2924,46 +2924,53 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                     console.log("Datos cargados correctamente de Supabase")
                     const character = data[0]
                     startTransition(() => {
-                        if (character.name) setCharacterName(character.name)
-                        if (character.level) {
+                        if (character.name !== undefined) setCharacterName(String(character.name))
+                        if (character.level !== undefined && character.level !== null) {
                             setLevel(character.level)
                             setLevelInput(String(character.level))
                         }
-                        if (character.race) setSelectedRace(character.race)
-                        if (character.subrace)
+                        if (character.race !== undefined) setSelectedRace(character.race)
+                        if (character.subrace !== undefined)
                             setSelectedSubrace(character.subrace)
-                        if (character.class) setSelectedClass(character.class)
-                        if (character.base_abilities)
+                        if (character.class !== undefined) setSelectedClass(character.class)
+                        if (character.base_abilities !== undefined && character.base_abilities !== null)
                             setBaseAbilities(character.base_abilities)
-                        if (character.proficient_skills)
-                            setProficientSkills(
-                                new Set(character.proficient_skills)
-                            )
-                        if (character.proficient_saves)
-                            setProficientSaves(
-                                new Set(character.proficient_saves)
-                            )
+
+                        if (Array.isArray(character.proficient_skills))
+                            setProficientSkills(new Set(character.proficient_skills ?? []))
+                        if (Array.isArray(character.proficient_saves))
+                            setProficientSaves(new Set(character.proficient_saves ?? []))
+                        if (Array.isArray(character.known_spells))
+                            setKnownSpells(new Set(character.known_spells ?? []))
+
                         if (character.current_hp !== undefined)
-                            setCurrentHP(character.current_hp)
+                            setCurrentHP(Number(character.current_hp) || 0)
                         if (character.max_hp !== undefined)
-                            setMaxHP(character.max_hp)
+                            setMaxHP(Number(character.max_hp) || 0)
                         if (character.inspiration !== undefined)
-                            setInspiration(character.inspiration)
-                        if (character.armor_worn)
+                            setInspiration(Boolean(character.inspiration))
+                        if (character.armor_worn !== undefined)
                             setArmorWorn(character.armor_worn)
-                        if (character.notes) setNotes(character.notes)
-                        if (character.traits) setTraits(character.traits)
-                        if (character.prepared_spells)
-                            setPreparedSpells(character.prepared_spells)
-                        if (character.weapons) setWeapons(character.weapons)
-                        if (character.armors) setArmors(character.armors)
-                        if (character.items) setItems(character.items)
-                        if (character.coins !== undefined) {
-                            setCoins(character.coins)
-                            setCoinsInput(String(parseInt(String(character.coins ?? 0), 10) || 0))
+
+                        if (character.notes !== undefined && character.notes !== null) setNotes(String(character.notes))
+                        if (Array.isArray(character.traits)) {
+                            const t = [...character.traits]
+                            while (t.length < 7) t.push("")
+                            setTraits(t)
                         }
-                        if (character.equipped_weapons) setEquippedWeapons(new Set(character.equipped_weapons))
-                        if (character.equipped_items) setEquippedItems(new Set(character.equipped_items))
+                        if (Array.isArray(character.prepared_spells))
+                            setPreparedSpells(character.prepared_spells)
+                        if (Array.isArray(character.weapons)) setWeapons(character.weapons)
+                        if (Array.isArray(character.armors)) setArmors(character.armors)
+                        if (Array.isArray(character.items)) setItems(character.items)
+                        if (character.coins !== undefined) {
+                            const c = parseInt(String(character.coins ?? 0), 10)
+                            const safe = isNaN(c) ? 0 : c
+                            setCoins(safe)
+                            setCoinsInput(String(safe))
+                        }
+                        if (Array.isArray(character.equipped_weapons)) setEquippedWeapons(new Set((character.equipped_weapons ?? []).map((n: any) => Number(n))))
+                        if (Array.isArray(character.equipped_items)) setEquippedItems(new Set((character.equipped_items ?? []).map((n: any) => Number(n))))
                         if (character.worn_armor_index !== undefined) setWornArmorIndex(character.worn_armor_index)
                     })
                 } else {
@@ -2998,19 +3005,20 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
             base_abilities: baseAbilities,
             proficient_skills: Array.from(proficientSkills),
             proficient_saves: Array.from(proficientSaves),
-            current_hp: currentHP,
-            max_hp: maxHP,
+            known_spells: Array.from(knownSpells),
+            current_hp: Number(currentHP) || 0,
+            max_hp: Number(maxHP) || 0,
             inspiration,
             armor_worn: armorWorn,
-            notes,
-            traits,
-            prepared_spells: preparedSpells,
-            weapons,
-            armors,
-            items,
-            coins,
-            equipped_weapons: Array.from(equippedWeapons),
-            equipped_items: Array.from(equippedItems),
+            notes: String(notes ?? ""),
+            traits: Array.isArray(traits) ? traits.slice(0, 7) : ["", "", "", "", "", "", ""],
+            prepared_spells: Array.isArray(preparedSpells) ? preparedSpells : [],
+            weapons: Array.isArray(weapons) ? weapons : [],
+            armors: Array.isArray(armors) ? armors : [],
+            items: Array.isArray(items) ? items : [],
+            coins: Number(coins) || 0,
+            equipped_weapons: Array.from(equippedWeapons).map((n) => Number(n)),
+            equipped_items: Array.from(equippedItems).map((n) => Number(n)),
             worn_armor_index: wornArmorIndex,
         }
 
@@ -3074,6 +3082,7 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
         baseAbilities,
         proficientSkills,
         proficientSaves,
+        knownSpells,
         currentHP,
         maxHP,
         inspiration,
@@ -3085,6 +3094,9 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
         armors,
         items,
         coins,
+        equippedWeapons,
+        equippedItems,
+        wornArmorIndex,
         isAuthenticated,
         userId,
         accessToken,
