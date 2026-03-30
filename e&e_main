@@ -1602,121 +1602,185 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
     // Calculate armor class based on armor worn, dexterity, and equipped items
     const armorClass = useMemo(() => {
         const dexMod = modifiers.dex
-        let baseAC = 10 + dexMod
-        let wearingArmor = false
+        let baseAC = 10 + dexMod // Default unarmored AC
+        let hasArmorEquipped = false
 
         console.log("=== AC CALCULATION START ===")
-        console.log("Base AC (10 + DEX):", baseAC, "(DEX mod:", dexMod, ")")
+        console.log("Base unarmored AC (10 + DEX):", baseAC, "(DEX mod:", dexMod, ")")
 
-        // Check worn armor
-        if (wornArmorIndex !== null && armors[wornArmorIndex]) {
+        // STEP 1: Check worn armor (from armors array)
+        if (wornArmorIndex !== null && wornArmorIndex >= 0 && armors[wornArmorIndex]) {
             const armorStr = armors[wornArmorIndex]
             console.log("Worn armor:", armorStr)
             const tag = parseACTag(armorStr)
             console.log("Parsed armor tag:", tag)
-            wearingArmor = true
             
-            if (tag) {
+            if (tag && !tag.noarmor) {
+                hasArmorEquipped = true
+                
                 if (tag.type === "fixed") {
+                    // Heavy armor: fixed AC, no DEX
                     baseAC = tag.base
-                    console.log("Applied fixed AC:", baseAC)
+                    console.log("Applied heavy armor (fixed AC):", baseAC)
                 } else if (tag.type === "light") {
+                    // Light armor: base + full DEX
                     baseAC = tag.base + dexMod
                     console.log("Applied light armor AC:", tag.base, "+", dexMod, "=", baseAC)
                 } else if (tag.type === "med") {
+                    // Medium armor: base + DEX (max +2)
                     baseAC = tag.base + Math.min(dexMod, 2)
                     console.log("Applied medium armor AC:", tag.base, "+ min(", dexMod, ", 2) =", baseAC)
+                } else if (tag.type === "bonus") {
+                    // This shouldn't happen for armor, but handle it
+                    baseAC = 10 + dexMod + tag.value
+                    console.log("Applied armor bonus:", tag.value)
                 }
-            } else {
-                // Fallback: parse armor name
+            } else if (!tag) {
+                // Fallback: parse armor name if no tag
                 const n = armorStr.toLowerCase()
-                console.log("No tag found, parsing name:", n)
-                if (n.includes("pesada") || n.includes("heavy") || n.includes("plate") || n.includes("placas") || n.includes("cota de mallas") || n.includes("chain mail") || n.includes("splint") || n.includes("bandas")) {
-                    if (n.includes("plate") || n.includes("placas")) baseAC = 18
-                    else if (n.includes("splint") || n.includes("bandas")) baseAC = 17
-                    else if (n.includes("chain mail") || n.includes("cota de mallas")) baseAC = 16
-                    else baseAC = 14
-                    console.log("Heavy armor detected, AC:", baseAC)
-                } else if (n.includes("media") || n.includes("medium") || n.includes("escama") || n.includes("scale") || n.includes("breastplate") || n.includes("peto") || n.includes("half plate") || n.includes("semiplacas") || n.includes("hide") || n.includes("pieles") || n.includes("chain shirt") || n.includes("camisote")) {
-                    if (n.includes("half plate") || n.includes("semiplacas")) baseAC = 15 + Math.min(dexMod, 2)
-                    else if (n.includes("scale") || n.includes("escama") || n.includes("breastplate") || n.includes("peto")) baseAC = 14 + Math.min(dexMod, 2)
-                    else if (n.includes("chain shirt") || n.includes("camisote")) baseAC = 13 + Math.min(dexMod, 2)
-                    else baseAC = 12 + Math.min(dexMod, 2)
-                    console.log("Medium armor detected, AC:", baseAC)
-                } else if (n.includes("ligera") || n.includes("light") || n.includes("cuero") || n.includes("leather") || n.includes("studded") || n.includes("tachonado") || n.includes("padded") || n.includes("acolchada")) {
-                    if (n.includes("studded") || n.includes("tachonado")) baseAC = 12 + dexMod
-                    else baseAC = 11 + dexMod
-                    console.log("Light armor detected, AC:", baseAC)
+                console.log("No tag found, parsing armor name:", n)
+                hasArmorEquipped = true
+                
+                // Heavy armor (no DEX)
+                if (n.includes("plate") || n.includes("placas")) {
+                    baseAC = 18
+                    console.log("Heavy armor (plate):", baseAC)
+                } else if (n.includes("splint") || n.includes("bandas")) {
+                    baseAC = 17
+                    console.log("Heavy armor (splint):", baseAC)
+                } else if (n.includes("chain mail") || n.includes("cota de mallas")) {
+                    baseAC = 16
+                    console.log("Heavy armor (chain mail):", baseAC)
+                } else if (n.includes("ring mail") || n.includes("anillas")) {
+                    baseAC = 14
+                    console.log("Heavy armor (ring mail):", baseAC)
+                }
+                // Medium armor (DEX max +2)
+                else if (n.includes("half plate") || n.includes("semiplacas")) {
+                    baseAC = 15 + Math.min(dexMod, 2)
+                    console.log("Medium armor (half plate):", baseAC)
+                } else if (n.includes("scale") || n.includes("escama") || n.includes("breastplate") || n.includes("peto")) {
+                    baseAC = 14 + Math.min(dexMod, 2)
+                    console.log("Medium armor (scale/breastplate):", baseAC)
+                } else if (n.includes("chain shirt") || n.includes("camisote")) {
+                    baseAC = 13 + Math.min(dexMod, 2)
+                    console.log("Medium armor (chain shirt):", baseAC)
+                } else if (n.includes("hide") || n.includes("pieles")) {
+                    baseAC = 12 + Math.min(dexMod, 2)
+                    console.log("Medium armor (hide):", baseAC)
+                }
+                // Light armor (full DEX)
+                else if (n.includes("studded") || n.includes("tachonado")) {
+                    baseAC = 12 + dexMod
+                    console.log("Light armor (studded leather):", baseAC)
+                } else if (n.includes("leather") || n.includes("cuero")) {
+                    baseAC = 11 + dexMod
+                    console.log("Light armor (leather):", baseAC)
+                } else if (n.includes("padded") || n.includes("acolchada")) {
+                    baseAC = 11 + dexMod
+                    console.log("Light armor (padded):", baseAC)
                 } else {
+                    // Unknown armor type, assume medium
                     baseAC = 14 + Math.min(dexMod, 2)
                     console.log("Unknown armor type, default medium AC:", baseAC)
                 }
             }
         }
 
-        // Check equipped items for bonuses
-        let itemBonus = 0
+        // STEP 2: Check equipped items for AC bonuses or alternative AC calculations
+        let totalBonus = 0
         console.log("Checking equipped items:", Array.from(equippedItems))
+        
         equippedItems.forEach(idx => {
-            if (idx >= items.length) return
+            if (idx < 0 || idx >= items.length) return
             const itemStr = items[idx]
             console.log("  Item:", itemStr)
             const tag = parseACTag(itemStr)
             console.log("  Parsed tag:", tag)
             
             if (tag) {
-                if (tag.noarmor && wearingArmor) {
-                    console.log("  Skipped (noarmor + wearing armor)")
+                // Skip noarmor items if wearing armor
+                if (tag.noarmor && hasArmorEquipped) {
+                    console.log("  Skipped (noarmor restriction + wearing armor)")
                     return
                 }
+                
                 if (tag.type === "bonus") {
-                    itemBonus += tag.value
-                    console.log("  Added bonus:", tag.value, "(total:", itemBonus, ")")
-                } else if (!wearingArmor) {
-                    if (tag.type === "fixed" && tag.base > baseAC) {
-                        baseAC = tag.base
-                        console.log("  Applied fixed AC:", baseAC)
+                    // AC bonus (like shields): always add
+                    totalBonus += tag.value
+                    console.log("  Added AC bonus:", tag.value, "(total bonus:", totalBonus, ")")
+                } else if (!hasArmorEquipped) {
+                    // Alternative AC calculation (only if not wearing armor)
+                    let altAC = 10 + dexMod
+                    
+                    if (tag.type === "fixed") {
+                        altAC = tag.base
                     } else if (tag.type === "light") {
-                        const calc = tag.base + dexMod
-                        if (calc > baseAC) {
-                            baseAC = calc
-                            console.log("  Applied light AC:", baseAC)
-                        }
+                        altAC = tag.base + dexMod
                     } else if (tag.type === "med") {
-                        const calc = tag.base + Math.min(dexMod, 2)
-                        if (calc > baseAC) {
-                            baseAC = calc
-                            console.log("  Applied medium AC:", baseAC)
-                        }
+                        altAC = tag.base + Math.min(dexMod, 2)
+                    }
+                    
+                    if (altAC > baseAC) {
+                        baseAC = altAC
+                        console.log("  Applied alternative AC:", altAC)
                     }
                 }
             } else {
-                // Fallback: parse item name
+                // Fallback: parse item name for AC bonuses
                 const n = itemStr.toLowerCase()
-                if (n.includes("escudo") || n.includes("shield")) {
-                    itemBonus += 2
-                    console.log("  Shield detected, +2 bonus (total:", itemBonus, ")")
+                
+                // Shield detection
+                if ((n.includes("escudo") || n.includes("shield")) && !n.includes("hechizo") && !n.includes("spell")) {
+                    totalBonus += 2
+                    console.log("  Shield detected, +2 AC (total bonus:", totalBonus, ")")
                 }
-                const acMatch = n.match(/\+(\d+)\s*(ca|ac|armadura|armor)/i)
-                if (acMatch) {
-                    const bonus = parseInt(acMatch[1])
-                    itemBonus += bonus
-                    console.log("  AC bonus detected:", bonus, "(total:", itemBonus, ")")
+                
+                // Explicit AC bonus: "+2 CA", "+1 AC", etc.
+                const acBonusMatch = n.match(/\+(\d+)\s*(ca|ac|armadura|armor)/i)
+                if (acBonusMatch) {
+                    const bonus = parseInt(acBonusMatch[1])
+                    totalBonus += bonus
+                    console.log("  AC bonus detected:", bonus, "(total bonus:", totalBonus, ")")
                 }
-                const magicMatch = n.match(/\+(\d+)\s/)
-                if (magicMatch && (n.includes("armor") || n.includes("armadura") || n.includes("cuero") || n.includes("leather") || n.includes("plate") || n.includes("placas") || n.includes("chain") || n.includes("cadena"))) {
-                    const bonus = parseInt(magicMatch[1])
-                    itemBonus += bonus
-                    console.log("  Magic armor bonus:", bonus, "(total:", itemBonus, ")")
+                
+                // Magic armor bonus: "+1 leather armor", "+2 plate", etc.
+                const magicArmorMatch = n.match(/\+(\d+)\s+(armor|armadura|cuero|leather|plate|placas|chain|cadena|escama|scale)/i)
+                if (magicArmorMatch && !hasArmorEquipped) {
+                    const bonus = parseInt(magicArmorMatch[1])
+                    totalBonus += bonus
+                    console.log("  Magic armor bonus:", bonus, "(total bonus:", totalBonus, ")")
                 }
             }
         })
 
-        const finalAC = baseAC + itemBonus
-        console.log("Final AC:", finalAC, "(base:", baseAC, "+ bonus:", itemBonus, ")")
+        // STEP 3: Check equipped weapons for AC bonuses (shields in weapons array)
+        console.log("Checking equipped weapons:", Array.from(equippedWeapons))
+        equippedWeapons.forEach(idx => {
+            if (idx < 0 || idx >= weapons.length) return
+            const weaponStr = weapons[idx]
+            console.log("  Weapon:", weaponStr)
+            const tag = parseACTag(weaponStr)
+            console.log("  Parsed tag:", tag)
+            
+            if (tag && tag.type === "bonus") {
+                totalBonus += tag.value
+                console.log("  Added AC bonus from weapon:", tag.value, "(total bonus:", totalBonus, ")")
+            } else {
+                // Fallback: check for shield in weapons
+                const n = weaponStr.toLowerCase()
+                if ((n.includes("escudo") || n.includes("shield")) && !n.includes("hechizo") && !n.includes("spell")) {
+                    totalBonus += 2
+                    console.log("  Shield in weapons, +2 AC (total bonus:", totalBonus, ")")
+                }
+            }
+        })
+
+        const finalAC = baseAC + totalBonus
+        console.log("Final AC:", finalAC, "(base:", baseAC, "+ bonuses:", totalBonus, ")")
         console.log("=== AC CALCULATION END ===")
         return finalAC
-    }, [wornArmorIndex, armors, modifiers.dex, equippedItems, items])
+    }, [wornArmorIndex, armors, modifiers.dex, equippedItems, items, equippedWeapons, weapons])
 
     // Calculate max HP based on class, level, and constitution
     const calculateMaxHP = useMemo(() => {
@@ -2923,62 +2987,104 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                 if (data && data.length > 0) {
                     console.log("Datos cargados correctamente de Supabase")
                     const character = data[0]
-                    console.log("Character name from DB:", character.name)
+                    console.log("Character data from DB:", character)
                     startTransition(() => {
-                        if (character.name !== undefined && character.name !== null) {
-                            const loadedName = String(character.name).trim()
-                            if (loadedName) {
+                        // Load character name
+                        const nameField = character.character_name ?? character.name
+                        if (nameField !== undefined && nameField !== null) {
+                            const loadedName = String(nameField).trim()
+                            if (loadedName && loadedName !== "NOMBRE") {
                                 setCharacterName(loadedName)
                                 console.log("Character name set to:", loadedName)
                             }
                         }
+                        
+                        // Load level
                         if (character.level !== undefined && character.level !== null) {
-                            setLevel(character.level)
-                            setLevelInput(String(character.level))
+                            const lvl = Number(character.level)
+                            if (!isNaN(lvl) && lvl >= 1 && lvl <= 20) {
+                                setLevel(lvl)
+                                setLevelInput(String(lvl))
+                            }
                         }
-                        if (character.race !== undefined) setSelectedRace(character.race)
-                        if (character.subrace !== undefined)
-                            setSelectedSubrace(character.subrace)
-                        if (character.class !== undefined) setSelectedClass(character.class)
-                        if (character.base_abilities !== undefined && character.base_abilities !== null)
-                            setBaseAbilities(character.base_abilities)
+                        
+                        // Load race, subrace, class
+                        if (character.selected_race !== undefined) setSelectedRace(character.selected_race)
+                        else if (character.race !== undefined) setSelectedRace(character.race)
+                        
+                        if (character.selected_subrace !== undefined) setSelectedSubrace(character.selected_subrace)
+                        else if (character.subrace !== undefined) setSelectedSubrace(character.subrace)
+                        
+                        if (character.selected_class !== undefined) setSelectedClass(character.selected_class)
+                        else if (character.class !== undefined) setSelectedClass(character.class)
+                        
+                        // Load base abilities
+                        if (character.base_abilities !== undefined && character.base_abilities !== null) {
+                            const abilities = character.base_abilities
+                            if (typeof abilities === 'object' && abilities.str !== undefined) {
+                                setBaseAbilities(abilities)
+                            }
+                        }
 
+                        // Load proficiencies (convert arrays to Sets)
                         if (Array.isArray(character.proficient_skills))
-                            setProficientSkills(new Set(character.proficient_skills ?? []))
+                            setProficientSkills(new Set(character.proficient_skills))
                         if (Array.isArray(character.proficient_saves))
-                            setProficientSaves(new Set(character.proficient_saves ?? []))
+                            setProficientSaves(new Set(character.proficient_saves))
                         if (Array.isArray(character.known_spells))
-                            setKnownSpells(new Set(character.known_spells ?? []))
+                            setKnownSpells(new Set(character.known_spells))
 
+                        // Load HP
                         if (character.current_hp !== undefined)
                             setCurrentHP(Number(character.current_hp) || 0)
                         if (character.max_hp !== undefined)
                             setMaxHP(Number(character.max_hp) || 0)
+                        
+                        // Load inspiration
                         if (character.inspiration !== undefined)
                             setInspiration(Boolean(character.inspiration))
+                        
+                        // Load armor worn
                         if (character.armor_worn !== undefined)
                             setArmorWorn(character.armor_worn)
 
-                        if (character.notes !== undefined && character.notes !== null) setNotes(String(character.notes))
+                        // Load notes
+                        if (character.notes !== undefined && character.notes !== null) 
+                            setNotes(String(character.notes))
+                        
+                        // Load traits
                         if (Array.isArray(character.traits)) {
                             const t = [...character.traits]
                             while (t.length < 7) t.push("")
                             setTraits(t)
                         }
+                        
+                        // Load prepared spells
                         if (Array.isArray(character.prepared_spells))
                             setPreparedSpells(character.prepared_spells)
+                        
+                        // Load equipment
                         if (Array.isArray(character.weapons)) setWeapons(character.weapons)
                         if (Array.isArray(character.armors)) setArmors(character.armors)
                         if (Array.isArray(character.items)) setItems(character.items)
+                        
+                        // Load coins
                         if (character.coins !== undefined) {
                             const c = parseInt(String(character.coins ?? 0), 10)
                             const safe = isNaN(c) ? 0 : c
                             setCoins(safe)
                             setCoinsInput(String(safe))
                         }
-                        if (Array.isArray(character.equipped_weapons)) setEquippedWeapons(new Set((character.equipped_weapons ?? []).map((n: any) => Number(n))))
-                        if (Array.isArray(character.equipped_items)) setEquippedItems(new Set((character.equipped_items ?? []).map((n: any) => Number(n))))
-                        if (character.worn_armor_index !== undefined) setWornArmorIndex(character.worn_armor_index)
+                        
+                        // Load equipped items (convert arrays to Sets)
+                        if (Array.isArray(character.equipped_weapons)) 
+                            setEquippedWeapons(new Set(character.equipped_weapons.map((n: any) => Number(n))))
+                        if (Array.isArray(character.equipped_items)) 
+                            setEquippedItems(new Set(character.equipped_items.map((n: any) => Number(n))))
+                        
+                        // Load worn armor index
+                        if (character.worn_armor_index !== undefined && character.worn_armor_index !== null) 
+                            setWornArmorIndex(Number(character.worn_armor_index))
                     })
                 } else {
                     console.log(
@@ -3004,21 +3110,21 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
 
         const characterData = {
             user_id: userId,
-            name: String(characterName || "NOMBRE").trim(),
-            level,
-            race: selectedRace,
-            subrace: selectedSubrace,
-            class: selectedClass,
+            character_name: String(characterName || "NOMBRE").trim(),
+            level: Number(level) || 1,
+            selected_race: String(selectedRace),
+            selected_subrace: String(selectedSubrace),
+            selected_class: String(selectedClass),
             base_abilities: baseAbilities,
             proficient_skills: Array.from(proficientSkills),
             proficient_saves: Array.from(proficientSaves),
             known_spells: Array.from(knownSpells),
             current_hp: Number(currentHP) || 0,
             max_hp: Number(maxHP) || 0,
-            inspiration,
-            armor_worn: armorWorn,
+            inspiration: Boolean(inspiration),
+            armor_worn: String(armorWorn),
             notes: String(notes ?? ""),
-            traits: Array.isArray(traits) ? traits.slice(0, 7) : ["", "", "", "", "", "", ""],
+            traits: Array.isArray(traits) ? traits : ["", "", "", "", "", "", ""],
             prepared_spells: Array.isArray(preparedSpells) ? preparedSpells : [],
             weapons: Array.isArray(weapons) ? weapons : [],
             armors: Array.isArray(armors) ? armors : [],
@@ -3026,36 +3132,23 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
             coins: Number(coins) || 0,
             equipped_weapons: Array.from(equippedWeapons).map((n) => Number(n)),
             equipped_items: Array.from(equippedItems).map((n) => Number(n)),
-            worn_armor_index: wornArmorIndex,
+            worn_armor_index: wornArmorIndex !== null ? Number(wornArmorIndex) : null,
         }
 
         try {
-            // First, try to check if character exists
-            const checkResponse = await fetch(
-                `${cleanSupabaseUrl}/rest/v1/characters?user_id=eq.${userId}&select=user_id`,
-                {
-                    headers: {
-                        apikey: supabaseAnonKey,
-                        Authorization: `Bearer ${accessToken}`,
-                    },
-                }
-            )
+            console.log("[SaveCharacter] sending upsert", {
+                user_id: characterData.user_id,
+                character_name: characterData.character_name,
+            })
 
-            const exists = checkResponse.ok && (await checkResponse.json()).length > 0
-
-            // Use PATCH if exists, POST if new
-            const method = exists ? "PATCH" : "POST"
-            const url = exists
-                ? `${cleanSupabaseUrl}/rest/v1/characters?user_id=eq.${userId}`
-                : `${cleanSupabaseUrl}/rest/v1/characters`
-
-            const response = await fetch(url, {
-                method,
+            // Use upsert to guarantee persistence even if row doesn't exist yet
+            const response = await fetch(`${cleanSupabaseUrl}/rest/v1/characters`, {
+                method: "POST",
                 headers: {
                     apikey: supabaseAnonKey,
                     Authorization: `Bearer ${accessToken}`,
                     "Content-Type": "application/json",
-                    Prefer: "return=minimal",
+                    Prefer: "resolution=merge-duplicates,return=minimal",
                 },
                 body: JSON.stringify(characterData),
             })
@@ -3064,7 +3157,7 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                 const errorText = await response.text()
                 console.error("Error al guardar:", response.status, errorText)
             } else {
-                console.log("Datos guardados correctamente. Name:", characterData.name)
+                console.log("Datos guardados correctamente. Name:", characterData.character_name)
             }
         } catch (error) {
             console.error("Error saving character data:", error)
@@ -3073,6 +3166,7 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
 
     // Auto-save character data when any relevant state changes
     useEffect(() => {
+        if (typeof window === "undefined") return
         if (isAuthenticated && userId && accessToken) {
             const timeoutId = window.setTimeout(() => {
                 saveCharacterData()
@@ -7043,7 +7137,7 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                                     </div>
                                 </div>
 
-                                {customItemAC && !customItemAC.startsWith("+") && (
+                                {customItemAC && !customItemAC.startsWith("+") && customItemCategory === "armors" && (
                                     <div>
                                         <div style={{ ...checkboxContainerStyle }}>
                                             <input
@@ -7058,7 +7152,7 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                                                 style={checkboxStyle}
                                             />
                                             <span style={{ ...labelFont, fontSize: "11px" }}>
-                                                Sumar modificador de Destreza
+                                                Sumar modificador de Destreza al CA
                                             </span>
                                         </div>
                                         {customItemUseDex && (
@@ -7081,20 +7175,22 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                                     </div>
                                 )}
 
-                                <div>
-                                    <div style={{ ...labelFont, fontSize: "11px", marginBottom: "4px" }}>Daño</div>
-                                    <input
-                                        type="text"
-                                        value={customItemDamage}
-                                        onChange={(e) =>
-                                            startTransition(() =>
-                                                setCustomItemDamage(e.target.value)
-                                            )
-                                        }
-                                        placeholder="Ej: 1d8 cortante, 2d6 fuego"
-                                        style={{ ...inputStyle }}
-                                    />
-                                </div>
+                                {customItemCategory !== "armors" && (
+                                    <div>
+                                        <div style={{ ...labelFont, fontSize: "11px", marginBottom: "4px" }}>Daño</div>
+                                        <input
+                                            type="text"
+                                            value={customItemDamage}
+                                            onChange={(e) =>
+                                                startTransition(() =>
+                                                    setCustomItemDamage(e.target.value)
+                                                )
+                                            }
+                                            placeholder="Ej: 1d8 cortante, 2d6 fuego"
+                                            style={{ ...inputStyle }}
+                                        />
+                                    </div>
+                                )}
 
                                 <div>
                                     <div style={{ ...labelFont, fontSize: "11px", marginBottom: "4px" }}>Curación</div>
@@ -8637,12 +8733,32 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
                                     color: "#FFF",
                                 }}
                                 onClick={() => {
-                                    startTransition(() => {
-                                        setActiveCombatSession(null)
-                                        setJoinSessionCode("")
-                                        setCombatMonsters([])
-                                        setCombatPlayers([])
-                                    })
+                                    const isDM =
+                                        userEmail.toLowerCase().trim() ===
+                                            "ospami97@hotmail.com" ||
+                                        userEmail.toLowerCase().trim() ===
+                                            "marcgrimas@gmail.com"
+                                    
+                                    if (isDM) {
+                                        // DM returns to session creation/management view
+                                        startTransition(() => {
+                                            setActiveCombatSession(null)
+                                            setCombatMonsters([])
+                                            setCombatPlayers([])
+                                            setDmMode(true)
+                                            setShowModeSelection(false)
+                                            setCombatSessionCode("")
+                                            setJoinSessionCode("")
+                                        })
+                                    } else {
+                                        // Regular player just leaves the session
+                                        startTransition(() => {
+                                            setActiveCombatSession(null)
+                                            setJoinSessionCode("")
+                                            setCombatMonsters([])
+                                            setCombatPlayers([])
+                                        })
+                                    }
                                 }}
                             >
                                 Salir
