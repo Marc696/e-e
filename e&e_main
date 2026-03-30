@@ -585,7 +585,7 @@ function extractACTag(it: any): string {
  * @framerSupportedLayoutWidth fixed
  * @framerSupportedLayoutHeight fixed
  */
-export default function DnDCharacterSheet(props: CharacterSheetProps) {
+function DnDCharacterSheet(props: CharacterSheetProps) {
     const {
         backgroundColor,
         primaryColor,
@@ -9302,6 +9302,8 @@ export default function DnDCharacterSheet(props: CharacterSheetProps) {
 }
 
 
+
+export default DnDCharacterSheet
 
 DnDCharacterSheet.displayName = "DnDCharacterSheet"
 
